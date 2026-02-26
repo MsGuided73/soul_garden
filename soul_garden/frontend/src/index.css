@@ -208,10 +208,51 @@
   100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
 }
 
+@keyframes nebula-drift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes stars-twinkle {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
 
 .animate-pulse-ring {
   animation: pulse-ring 3s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Animated Garden Background */
+.garden-bg {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(88, 28, 135, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 10%, rgba(16, 185, 129, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 60% 80%, rgba(124, 58, 237, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 70%, rgba(6, 78, 59, 0.25) 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 60%, rgba(109, 40, 217, 0.15) 0%, transparent 40%),
+    linear-gradient(135deg, #03020d 0%, #070515 40%, #040d10 100%);
+  background-size: 300% 300%, 200% 200%, 250% 250%, 200% 200%, 180% 180%, 100% 100%;
+  animation: nebula-drift 20s ease infinite;
+}
+
+/* Tiny star layer */
+.garden-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 10%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 35%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 75%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 85%, rgba(200,180,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 5%  90%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 92% 20%, rgba(180,255,220,0.4) 0%, transparent 100%);
+  animation: stars-twinkle 4s ease-in-out infinite;
 }

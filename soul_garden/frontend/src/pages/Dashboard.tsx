@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Sparkles } from 'lucide-react'
 import type { AgentSummary } from '../types'
-import { api } from '../utils/api'
+import { supabase } from '../lib/supabase'
 
 function Dashboard() {
   const [agents, setAgents] = useState<AgentSummary[]>([])
@@ -14,27 +14,37 @@ function Dashboard() {
 
   const loadAgents = async () => {
     try {
-      const data = await api.getAgents()
-      setAgents(data)
+      const { data, error } = await supabase.from('sg_agents').select('*')
+      
+      if (error) throw error
+      
+      if (data) {
+        // Map DB fields to the AgentSummary type the UI expects
+        const mappedAgents: AgentSummary[] = data.map(dbAgent => ({
+          id: dbAgent.id,
+          name: dbAgent.name,
+          handle: dbAgent.name.toLowerCase().replace(/\s+/g, '_'),
+          status: (dbAgent.current_status || 'dormant') as any, // The UI expects specific enum strings
+          garden_id: null,
+          created_at: new Date().toISOString(),
+          last_active: new Date().toISOString()
+        }))
+        setAgents(mappedAgents)
+      }
     } catch (error) {
-      console.error('Failed to load agents:', error)
+      console.error('Failed to load agents from Supabase:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-500'
-      case 'reflecting':
-        return 'bg-purple-500'
-      case 'dreaming':
-        return 'bg-amber-500'
-      case 'dormant':
-      default:
-        return 'bg-gray-500'
-    }
+    // Basic fuzzy matching since Supabase might have freeform strings like 'Speaking with Dana'
+    const s = status.toLowerCase()
+    if (s.includes('active') || s.includes('speak') || s.includes('move')) return 'bg-green-500'
+    if (s.includes('reflect') || s.includes('journal')) return 'bg-purple-500'
+    if (s.includes('dream')) return 'bg-amber-500'
+    return 'bg-gray-500'
   }
 
   if (loading) {

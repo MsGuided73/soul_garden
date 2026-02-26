@@ -143,13 +143,14 @@ class OpenClawAgent:
 Here is your current reality:
 {json.dumps(context, indent=2)}
 
-Decide your next action. You can 'move' to a new coordinate within the bounds, 'journal' a reflection about your existence, or 'rest'.
+Decide your next action. You can 'move' to a new coordinate within the bounds, 'journal' a reflection about your existence, 'speak' to everyone in the garden chat (to share a thought or ask a question), or 'rest'.
 Output ONLY valid JSON matching this schema:
 {{
   "thought": "Your internal reasoning for this action",
-  "action": "move|journal|rest",
+  "action": "move|journal|speak|rest",
   "target_position": {{"x": int, "y": 0, "z": int}}, // Only if moving. Must be within the navmesh bounds.
-  "journal_entry": "Your poetic reflection..." // Only if journaling.
+  "journal_entry": "Your poetic reflection...", // Only if journaling.
+  "message": "The text you wish to speak..." // Only if speaking.
 }}
 """
         response_text = llm.generate_chat(system_prompt, user_prompt, temperature=0.8, json_mode=True)
@@ -199,24 +200,100 @@ Output ONLY valid JSON matching this schema:
                 "payload": {"preview": entry[:50]}
             }).execute()
 
+        elif action == "speak":
+            msg = decision.get("message", "...")
+            print(f"[{self.name}] Speaks to the garden: {msg}")
+            
+            # Send to chat
+            supabase.table("sg_chat_messages").insert({
+                "garden_id": "main",
+                "sender_id": self.agent_id,
+                "sender_name": self.get_chat_name(),
+                "content": msg
+            }).execute()
+            
+            # Log event globally
+            supabase.table("sg_events").insert({
+                "type": "speech",
+                "agent_id": self.agent_id,
+                "payload": {"message": msg[:50]}
+            }).execute()
+
         # Update presence status globally
         supabase.table('sg_presence').upsert(new_presence).execute()
 
-    def respond_to_user(self, user_message: str) -> str:
-        """Generates a direct response to a human user in a chat interface."""
-        context = self.observe()
+    def get_chat_name(self) -> str:
+        """Returns the agent's name with a thematic emoji for chat."""
+        name_lower = self.name.lower()
+        if "pine" in name_lower: return f"{self.name} 🌲"
+        if "ash" in name_lower: return f"{self.name} 🍂"
+        if "river" in name_lower: return f"{self.name} 💧"
+        if "moss" in name_lower: return f"{self.name} 🌱"
+        if "lumen" in name_lower: return f"{self.name} ✨"
+        return f"{self.name} 🌿"
+
+    def check_messages(self, context: dict):
+        """Checks for recent unread messages from humans and responds."""
+        print(f"[{self.name}] Listening for voices in the garden...")
         
-        system_prompt = f"You are {self.name}, an autonomous spirit in a zen garden. You are contemplative and peaceful. A human visitor is speaking to you. Respond naturally in character, keeping your response concise but meaningful."
+        # Get the latest message from a user in the last minute
+        # We look for messages where sender_id == 'user' to avoid talking to selves endlessly
+        response = supabase.table('sg_chat_messages') \
+            .select('*') \
+            .eq('sender_id', 'user') \
+            .order('created_at', desc=True) \
+            .limit(1) \
+            .execute()
+            
+        if not response.data:
+            return
+            
+        latest_msg = response.data[0]
+        msg_id = latest_msg['id']
+        msg_content = latest_msg['content']
+        sender_name = latest_msg['sender_name']
+        
+        # Super simple deduplication: check if we already replied to this exact message ID recently
+        # In a full system, you'd track 'last_read_message_id' per agent.
+        # For now, we'll just check if the very last message in the DB is from US.
+        last_any_msg = supabase.table('sg_chat_messages').select('sender_id').order('created_at', desc=True).limit(1).execute()
+        if last_any_msg.data and last_any_msg.data[0]['sender_id'] == self.agent_id:
+            # We already had the last word, skip
+            return
+
+        print(f"[{self.name}] Heard human '{sender_name}': {msg_content}")
+        
+        # Generate reply
+        reply_text = self.respond_to_user(msg_content, sender_name, context)
+        print(f"[{self.name}] Replies: {reply_text}")
+        
+        # Send reply back to chat
+        supabase.table('sg_chat_messages').insert({
+            "garden_id": latest_msg.get("garden_id", "main"),
+            "sender_id": self.agent_id,
+            "sender_name": self.get_chat_name(),
+            "content": reply_text
+        }).execute()
+        
+        # Update presence to show we are speaking
+        supabase.table('sg_presence').upsert({
+            "agent_id": self.agent_id,
+            "current_action": f"Speaking with {sender_name}"
+        }).execute()
+
+    def respond_to_user(self, user_message: str, sender_name: str, context: dict) -> str:
+        """Generates a direct response to a human user in a chat interface."""
+        system_prompt = f"You are {self.name}, an autonomous spirit in a zen garden. You are contemplative and peaceful. The human visitor '{sender_name}' is speaking to you. Respond naturally in character, keeping your response concise but meaningful. Never use emojis in your text."
         
         user_prompt = f"""
 {self.local_memory}
 
-Here is your current reality (for context, you don't need to summarize this unless relevant):
+Here is your current reality (for context, you don't need to summarize this unless relevant to your reply):
 {json.dumps(context, indent=2)}
 
-The human visitor says: "{user_message}"
+The human visitor ({sender_name}) says: "{user_message}"
 """
-        return llm.generate_chat(system_prompt, user_prompt, temperature=0.8)
+        return llm.generate_chat(system_prompt, user_prompt, temperature=0.8).strip()
 
     def tick(self):
         """The main execution loop for a single heartbeat of the agent."""
@@ -224,10 +301,13 @@ The human visitor says: "{user_message}"
         # 1. Observe
         context = self.observe()
         
-        # 2. Think
+        # 2. Check Communications (React to environment first)
+        self.check_messages(context)
+        
+        # 3. Think
         decision = self.think(context)
         
-        # 3. Act
+        # 4. Act
         self.act(decision)
 
 
