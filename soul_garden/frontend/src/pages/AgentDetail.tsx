@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Moon, Sun, Brain } from 'lucide-react'
-import type { Agent, AgentIdentity, Reflection, Memory } from '../types'
+import type { Agent, AgentIdentity, Reflection } from '../types'
 import { api } from '../utils/api'
 
 function AgentDetail() {

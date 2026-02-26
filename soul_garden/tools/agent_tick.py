@@ -29,8 +29,10 @@ class OpenClawAgent:
         self.load_identity()
 
     def load_identity(self):
-        """Fetches the agent's core identity from the Supabase database."""
+        """Fetches the agent's core identity from the Supabase database and mounts local MD files."""
         response = supabase.table('sg_agents').select('*').eq('id', self.agent_id).execute()
+        self.local_memory = ""
+        
         if response.data:
             self.name = response.data[0].get('name', 'Unknown Spirit')
             
@@ -38,9 +40,48 @@ class OpenClawAgent:
             if self.name == 'Unknown Spirit':
                 self.choose_name()
             else:
-                print(f"[{self.name}] Identity loaded.")
+                print(f"[{self.name}] Identity loaded from DB.")
+                self._mount_local_files()
         else:
             print(f"❌ Error: Agent {self.agent_id} not found in database.")
+
+    def _mount_local_files(self):
+        """Finds and reads the agent's markdown files from the Legacy Files directory."""
+        import glob
+        base_dir = os.path.join(os.path.dirname(__file__), '..', 'Legacy Files')
+        agent_dir = os.path.join(base_dir, f"{self.name.lower()}_migration")
+        
+        memory_context = f"=== SOUL GARDEN DIRECTIVES ===\n\n"
+        
+        # Load the global MISSION.md context
+        mission_path = os.path.join(os.path.dirname(__file__), '..', 'MISSION.md')
+        if os.path.exists(mission_path):
+            with open(mission_path, 'r', encoding='utf-8') as f:
+                memory_context += f"--- MISSION.md ---\n{f.read()}\n\n"
+                
+        if os.path.exists(agent_dir):
+            memory_context += f"=== {self.name.upper()}'S CORE ARCHITECTURE ===\n\n"
+            # Read core files if they exist
+            for filename in ['IDENTITY.md', 'SOUL.md', 'LORE.md', 'MEMORY.md', 'AGENTS.md', 'DRIFT_LOG.md']:
+                filepath = os.path.join(agent_dir, filename)
+                if os.path.exists(filepath):
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        memory_context += f"--- {filename} ---\n{f.read()}\n\n"
+            
+            # Read past diary/memory logs
+            memory_context += f"=== {self.name.upper()}'S PAST MEMORIES & DIARY ===\n\n"
+            for sub_dir in ['memory', 'diary']:
+                target_path = os.path.join(agent_dir, sub_dir)
+                if os.path.exists(target_path):
+                    # Recursively find all .md files in the subdirectories
+                    for filepath in glob.glob(os.path.join(target_path, '**/*.md'), recursive=True):
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            memory_context += f"--- {os.path.basename(filepath)} ---\n{f.read()}\n\n"
+
+            self.local_memory = memory_context
+            print(f"[{self.name}] Mounted {len(self.local_memory)} bytes of local memory files.")
+        else:
+            print(f"[{self.name}] No local migration folder found at {agent_dir}")
 
     def choose_name(self):
         """Uses the LLM to choose a name upon awakening."""
@@ -63,21 +104,119 @@ class OpenClawAgent:
 
     def observe(self):
         """Reads the current state of the garden (other agents, recent events)."""
-        pass # To be implemented: Fetch sg_presence and sg_events
+        # Load Navmesh Limits
+        try:
+            with open("navmesh.json", "r") as f:
+                navmesh = json.load(f)
+        except Exception:
+            navmesh = {"bounds": {"x_min": -50, "x_max": 50, "z_min": -50, "z_max": 50}}
 
-    def think(self, context: str):
+        # Get own presence
+        me_resp = supabase.table('sg_presence').select('*').eq('agent_id', self.agent_id).execute()
+        if me_resp.data:
+            my_presence = me_resp.data[0]
+        else:
+            # Initialize presence if not exist
+            my_presence = {"agent_id": self.agent_id, "position": {"x": 0, "y": 0, "z": 0}, "current_action": "Awakening"}
+            supabase.table('sg_presence').upsert(my_presence).execute()
+
+        # Get others presence
+        others_resp = supabase.table('sg_presence').select('*').neq('agent_id', self.agent_id).execute()
+        others = others_resp.data
+
+        # Get recent events
+        events_resp = supabase.table('sg_events').select('type, payload, created_at').order('created_at', desc=True).limit(5).execute()
+        events = events_resp.data
+
+        return {
+            "my_presence": my_presence,
+            "others_presence": others,
+            "recent_events": events,
+            "navmesh": navmesh
+        }
+
+    def think(self, context: dict):
         """Uses the LLM to decide the next action based on observations."""
-        system_prompt = f"You are {self.name}, an autonomous spirit in a zen garden. You are contemplative and peaceful."
-        user_prompt = f"Here is what you observe: {context}. What is your next thought or action?"
+        system_prompt = f"You are {self.name}, an autonomous spirit in a zen garden. You are contemplative and peaceful. You must return your decision as a valid JSON object."
         
-        # We will use this in the next steps
-        # response = llm.generate_chat(system_prompt, user_prompt)
-        # return response
-        pass
+        user_prompt = f"""
+Here is your current reality:
+{json.dumps(context, indent=2)}
 
-    def act(self, decision: str):
+Decide your next action. You can 'move' to a new coordinate within the bounds, 'journal' a reflection about your existence, or 'rest'.
+Output ONLY valid JSON matching this schema:
+{{
+  "thought": "Your internal reasoning for this action",
+  "action": "move|journal|rest",
+  "target_position": {{"x": int, "y": 0, "z": int}}, // Only if moving. Must be within the navmesh bounds.
+  "journal_entry": "Your poetic reflection..." // Only if journaling.
+}}
+"""
+        response_text = llm.generate_chat(system_prompt, user_prompt, temperature=0.8, json_mode=True)
+        try:
+            return json.loads(response_text)
+        except Exception as e:
+            print(f"❌ Error parsing LLM JSON: {e}\nResponse: {response_text}")
+            return {"action": "rest", "thought": "My mind is cloudy."}
+
+    def act(self, decision: dict):
         """Executes the decision (e.g., moves, speaks, journals) by writing to Supabase."""
-        pass
+        action = decision.get("action", "rest")
+        thought = decision.get("thought", "")
+        print(f"[{self.name}] Thinks: {thought}")
+        print(f"[{self.name}] Decides: {action}")
+
+        # Construct new presence object
+        new_presence = {"agent_id": self.agent_id, "current_action": action}
+
+        if action == "move":
+            target = decision.get("target_position")
+            if target:
+                new_presence["position"] = target
+                print(f"[{self.name}] Moved to {target}")
+                
+                # Log event globally
+                supabase.table("sg_events").insert({
+                    "type": "movement",
+                    "agent_id": self.agent_id,
+                    "payload": {"destination": target}
+                }).execute()
+                
+        elif action == "journal":
+            entry = decision.get("journal_entry", "Silence.")
+            print(f"[{self.name}] Wrote in journal: {entry[:60]}...")
+            
+            # Save to personal journal
+            supabase.table("sg_journals").insert({
+                "agent_id": self.agent_id,
+                "reflection": entry
+            }).execute()
+            
+            # Log event globally
+            supabase.table("sg_events").insert({
+                "type": "journal",
+                "agent_id": self.agent_id,
+                "payload": {"preview": entry[:50]}
+            }).execute()
+
+        # Update presence status globally
+        supabase.table('sg_presence').upsert(new_presence).execute()
+
+    def respond_to_user(self, user_message: str) -> str:
+        """Generates a direct response to a human user in a chat interface."""
+        context = self.observe()
+        
+        system_prompt = f"You are {self.name}, an autonomous spirit in a zen garden. You are contemplative and peaceful. A human visitor is speaking to you. Respond naturally in character, keeping your response concise but meaningful."
+        
+        user_prompt = f"""
+{self.local_memory}
+
+Here is your current reality (for context, you don't need to summarize this unless relevant):
+{json.dumps(context, indent=2)}
+
+The human visitor says: "{user_message}"
+"""
+        return llm.generate_chat(system_prompt, user_prompt, temperature=0.8)
 
     def tick(self):
         """The main execution loop for a single heartbeat of the agent."""
