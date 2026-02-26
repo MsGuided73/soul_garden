@@ -1,0 +1,249 @@
+# ============================================
+# Soul Garden - Git Ignore
+# ============================================
+
+# ============================================
+# Environment & Secrets (NEVER COMMIT)
+# ============================================
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.example.local
+
+# ============================================
+# Python (Backend)
+# ============================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Rope
+.ropeproject
+
+# Environments
+env.bak/
+venv.bak/
+
+# ============================================
+# Node.js (Frontend)
+# ============================================
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+/coverage
+
+# ============================================
+# Storage & Data (Generated Content)
+# ============================================
+# Agent identity files and data
+storage/
+data/
+agents/
+logs/
+*.log
+
+# Uploads
+uploads/
+temp/
+tmp/
+
+# ============================================
+# Database
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+mysql-data/
+
+# ============================================
+# IDE & Editors
+# ============================================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# ============================================
+# OS Generated Files
+# ============================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# ============================================
+# Deployment & Infrastructure
+# ============================================
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+override.tf
+override.tf.json
+.terraformrc
+terraform.rc
+
+# Docker
+.dockerignore
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# ============================================
+# Misc
+# ============================================
+# Local notes
+TODO.md
+NOTES.md
+*.notes
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Lock files (except package-lock.json and similar which should be committed)
+# Comment these out if you want to commit lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ============================================
+# Soul Garden Specific
+# ============================================
+# Runtime generated content (but keep directory structure)
+backend/storage/*
+!backend/storage/.gitkeep
+
+# Local agent gardens (for testing)
+gardens/
+
+# Persistent process state files
+*.pid
+*.seed
+*.pid.lock
+
+# Nightly build artifacts
+nightly-builds/
+build-outputs/
