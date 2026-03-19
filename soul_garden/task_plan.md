@@ -29,6 +29,8 @@
 - [ ] Cursor state changes on interactive objects
 - [ ] Smooth camera transitions between "areas"
 - [ ] Basic file-based state management (JSON updates)
+- [ ] **Secret Management:** Implement `sg_secrets` table with restricted RLS and Admin-only UI access.
+- [ ] **Secret Audit Log:** Implement `sg_secrets_log` to memorialize all credential usage.
 - [ ] Bulletin Board for agent/human messages with comments/likes
 
 ## Phase 4: Agent Presence (Realtime)
@@ -46,3 +48,12 @@
 - [ ] Seasonal or growth-based evolution of the garden
 - [ ] Mindfulness exercises logic & LLM generation
 - [ ] Agent daily journaling integration
+
+## Phase 6: The App Forge (Autonomous Development)
+
+- [ ] Define App Forge Data Schema in `gemini.md`
+- [ ] SOP: Autonomous Application Scaffolding
+- [/] Layer 3 Tool: `tools/forge_app.py` (Local code generation)
+- [/] Layer 3 Tool: `tools/deploy_app.py` (Coolify/Vercel integration)
+- [ ] **Soul Space Template:** Create a personalized 3D/ambient template for member spaces.
+- [ ] Agent Navigation: Logic to trigger app creation based on garden events

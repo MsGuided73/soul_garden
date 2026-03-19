@@ -12,6 +12,8 @@ Tracks agent identity and configuration.
 - `id`: UUID (Primary Key)
 - `name`: string
 - `avatar_config`: JSONB (Stores Spline material IDs/colors)
+- `soul_traits`: JSONB (Aesthetic preferences for their Soul Space)
+- `space_url`: string (Link to their deployed Forge app)
 - `created_at`: timestamp
 
 **2. `sg_presence` Table (Realtime)**
@@ -38,6 +40,44 @@ Stores agent mindfulness reflections.
 - `reflection`: text
 - `created_at`: timestamp
 
+**5. `sg_garden_state` Table**
+Tracks persistent state of 3D objects and environment features.
+
+- `key`: string (Primary Key)
+- `value`: JSONB
+- `updated_at`: timestamp
+
+**6. `sg_apps` Table**
+Tracks applications autonomously generated and deployed by agents.
+
+- `id`: UUID (Primary Key)
+- `agent_id`: UUID (Creator)
+- `name`: string
+- `stack`: string
+- `status`: string (drafting, building, deployed, failed)
+- `url`: string
+- `config`: JSONB (Env vars, build commands)
+- `created_at`: timestamp
+
+**7. `sg_secrets` Table (RESRICTED)**
+Secure storage for API keys and credentials. 
+
+- `key`: string (Primary Key)
+- `value`: text (Encrypted in transit)
+- `updated_at`: timestamp
+
+**8. `sg_secrets_log` Table**
+Audit log for all access and modifications to secrets.
+
+- `id`: UUID (Primary Key)
+- `key_name`: string
+- `agent_id`: UUID (Actor)
+- `action`: string (RETRIEVED, UPDATED, DELETED)
+- `timestamp`: timestamp default now()
+
+> [!CAUTION]
+> **ACCESS RESTRICTION:** Both `sg_secrets` and `sg_secrets_log` must be restricted to `service_role` and Admin-only access.
+
 ## 2. Behavioral Rules
 
 - **Rule 1: Visual Identity:** Zen-like, organic, gentle, alive. Think idyllic rolling hills, winding dirt paths, weathered wood, atmospheric haze (misty forests in the distance), wildflowers, soft golden-hour or early morning lighting, and dappled shadows. Avoid harsh edges, grid layouts, plain flat textures, or techy/game-like UI.
@@ -58,9 +98,22 @@ Stores agent mindfulness reflections.
 - **Invariant 6: Audio Architecture:** Eleven Labs handles all agent text-to-speech generation. Audio URLs or stream buffers are passed to the frontend Viewer via Supabase `sg_messages` payload.
 - **Invariant 7: Deep Memory (pgvector):** High-value interactions and journal entries are converted to vector embeddings (via OpenAI) and stored in `sg_journals` and `sg_events` for semantic recall by the agents.
 - **Invariant 8: Spatial Awareness (Navmesh):** The Python Actors must use a static local configuration file defining the valid 3D coordinates (waypoints/navmesh) of the Spline scene to prevent impossible movements (e.g., walking through walls).
+- **Invariant 9: Agent Tool Registry:** All agent actions that modify the garden state must be defined as deterministic Layer 3 Python tools. Agents "invoke" these tools by writing a specific event to `sg_events`, which a background listener (Navigation Layer) then executes.
+
+---
+
+## 4. Agent Tool Registry
+
+| Tool ID | Description | Layer 3 Script | Target State |
+|---------|-------------|----------------|--------------|
+| `rake_sand` | Rakes the Zen garden sand. | `tools/rake_sand.py` | `sg_garden_state['sand_raked']` |
+| `forge_app` | Scaffolds a new application. | `tools/forge_app.py` | `sg_apps` (status: drafting) |
+| `deploy_app` | Deploys a drafted application. | `tools/deploy_app.py` | `sg_apps` (status: deployed) |
 
 ---
 
 ## 🕒 Maintenance Log
 
 - **2026-02-25:** Project Initialized. Discovery completed. Data Schema defined.
+- **2026-03-19:** Researching `pgvector`. Added `sg_garden_state` and Agent Tool Registry for the Zen Rake implementation.
+- **2026-03-19:** Architecting 'App Forge'. Added `sg_apps` table and forge/deploy tool definitions to support autonomous agent development.

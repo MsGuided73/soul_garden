@@ -23,3 +23,20 @@
 - **Visuals:** Organic, zen-like, Japanese garden aesthetics.
 - **UX:** Desktop-first, mobile reactive.
 - **Accessibility:** Screen reader friendly, reduced motion option, audio mute toggle.
+
+## pgvector Enablement (Supabase)
+
+### Enablement Steps
+- **SQL:** `create extension vector with schema extensions;`
+- **Dashboard:** Database > Extensions > Search "vector" > Enable.
+
+### Requirements & Constraints
+- **Data Type:** `vector(dimensions)` (e.g., `vector(1536)` for OpenAI embeddings).
+- **Operators:** 
+  - `<->`: Euclidean distance
+  - `<#>`: Negative inner product
+  - `<=>`: Cosine distance
+- **Indexing:** 
+  - **HNSW:** (Recommended) Better performance/recall. Use `vector_cosine_ops` for the index method.
+  - **IVFFlat:** Requires a pre-defined number of lists (probes).
+- **Dimensions:** HNSW supports up to 2000 dimensions for standard vectors.
