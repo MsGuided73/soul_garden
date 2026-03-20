@@ -4,8 +4,7 @@
   "private": true,
   "description": "A 3D ambient space for agent communication and soul forging.",
   "workspaces": [
-    "frontend",
-    "backend"
+    "frontend"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
