@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
     "build": "npm run build --workspace=frontend",
-    "preview": "npm run preview --workspace=frontend -- --host 0.0.0.0 --port 8000",
+    "preview": "npm run preview --workspace=frontend -- --host 0.0.0.0 --port 3000",
     "test": "npm run test --workspace=frontend"
   },
   "engines": {
