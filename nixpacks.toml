@@ -1,13 +1,13 @@
 # Nixpacks configuration for Soul Garden Monorepo
 
 [phases.setup]
-nixPkgs = ["nodejs-22_x"]
+nixPkgs = ["nodejs"]
 
 [phases.install]
-cmds = ["cd frontend && npm install"]
+cmds = ["npm install"]
 
 [phases.build]
-cmds = ["cd frontend && npm run build"]
+cmds = ["npm run build"]
 
 [start]
-cmd = "cd frontend && npm run preview -- --host 0.0.0.0 --port 8000"
+cmd = "npm run preview"
