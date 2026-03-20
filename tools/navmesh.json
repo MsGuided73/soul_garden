@@ -1,0 +1,40 @@
+{
+  "bounds": {
+    "x_min": -50,
+    "x_max": 50,
+    "z_min": -50,
+    "z_max": 50
+  },
+  "obstacles": [
+    {
+      "id": "central_pond",
+      "type": "circle",
+      "center": {"x": 0, "z": 0},
+      "radius": 10
+    },
+    {
+      "id": "meditation_boulder",
+      "type": "rectangle",
+      "center": {"x": 15, "z": 20},
+      "width": 5,
+      "depth": 5
+    }
+  ],
+  "waypoints": [
+    {
+      "id": "spawn_1",
+      "position": {"x": -20, "y": 0, "z": -20},
+      "tags": ["spawn", "quiet"]
+    },
+    {
+      "id": "social_hub",
+      "position": {"x": 0, "y": 0, "z": -15},
+      "tags": ["social", "gathering"]
+    },
+    {
+      "id": "reflection_hill",
+      "position": {"x": 30, "y": 5, "z": 30},
+      "tags": ["isolated", "reflection"]
+    }
+  ]
+}

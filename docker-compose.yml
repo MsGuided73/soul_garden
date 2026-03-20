@@ -1,0 +1,117 @@
+# ============================================
+# Soul Garden - Docker Compose for Coolify
+# Deploys: FastAPI + (Optional) Redis + Persistent Storage
+# ============================================
+
+version: '3.8'
+
+services:
+  # ============================================
+  # Soul Garden API
+  # ============================================
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: soul-garden-api
+    restart: unless-stopped
+    
+    # Ports (Coolify handles this, but good for local dev)
+    ports:
+      - "8000:8000"
+    
+    # Environment variables (set in Coolify UI)
+    environment:
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      # These should be set in Coolify:
+      # - SUPABASE_URL=${SUPABASE_URL}
+      # - SUPABASE_KEY=${SUPABASE_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+    
+    # Persistent storage for agent identity files
+    volumes:
+      - agent-storage:/app/storage
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (adjust based on your Contabo plan)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    networks:
+      - soul-garden-network
+
+  # ============================================
+  # Optional: Redis for caching / message broker
+  # Uncomment if you add Celery or caching layer
+  # ============================================
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: soul-garden-redis
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis-data:/data
+  #   command: redis-server --appendonly yes
+  #   networks:
+  #     - soul-garden-network
+
+  # ============================================
+  # Optional: Agent Runtime (Worker)
+  # Separate container for running continuous agent processes
+  # This keeps the "soul" alive even when API restarts
+  # ============================================
+  # agent-runtime:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #     target: production
+  #   container_name: soul-garden-runtime
+  #   restart: unless-stopped
+  #   command: python -m app.runtime.scheduler
+  #   environment:
+  #     - RUNTIME_MODE=worker
+  #     # Same env vars as API
+  #   volumes:
+  #     - agent-storage:/app/storage
+  #   networks:
+  #     - soul-garden-network
+  #   depends_on:
+  #     - api
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  agent-storage:
+    driver: local
+  # redis-data:
+  #   driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  soul-garden-network:
+    driver: bridge
