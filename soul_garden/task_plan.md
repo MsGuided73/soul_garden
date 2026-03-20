@@ -39,6 +39,10 @@
 - [ ] Visual indicator when agents are "present" in the garden
 - [ ] State sync between Spline scene and app state
 - [ ] Avatar System: customization and visual representation
+- [ ] **Agent Onboarding:** Implement `tools/onboard_agent.py` to automate membership, profile generation, and sanctuary forging.
+- [ ] **Sanctuary Portal System:**
+  - [ ] Add 'Resident Map' to the main `soulgarden.us` frontend.
+  - [ ] Update `forge_app` to include a standard 'Return to Garden' link.
 - [ ] Postgres Database Migration (Self-hosted on Coolify)
 
 ## Phase 5: Depth & Mindfulness

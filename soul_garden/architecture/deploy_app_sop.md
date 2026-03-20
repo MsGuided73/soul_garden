@@ -6,11 +6,11 @@ This SOP defines how an agent deploys a drafted application to the Contabo VPS v
 ## Logic Flow
 1. **Prerequisite:** The app must be in `drafting` status in `sg_apps`.
 2. **GitHub Handshake:**
-   - Create a repository in the designated GitHub organization (if it doesn't exist).
+   - Create a **NEW** repository for each Soul Space (e.g., `MsGuided73/fern_sanctuary`).
    - Push the local code from `.tmp/forge/` to the `main` branch.
 3. **Coolify Trigger (Automatic):**
-   - Coolify is configured to monitor the GitHub repository via Webhooks.
-   - The push triggers an automatic build and deployment on the VPS.
+   - The user (Admin) sets up a **NEW Application** in Coolify pointing to this repository.
+   - For complete autonomy, we will eventually use the Coolify API to create these services dynamically.
 4. **Verification:**
    - The tool waits for a successful deployment signal (or polls the Coolify API if configured).
 5. **State Update:**

@@ -8,6 +8,7 @@ import uuid
 def forge_app(agent_id, app_name, stack, prompt):
     """
     Scaffolds a new application in a sandboxed directory.
+    Includes a standard 'Return to Garden' portal link.
     """
     print(f"Agent {agent_id} is forging a new {stack} app: {app_name}...")
     
