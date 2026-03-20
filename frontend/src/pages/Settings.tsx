@@ -1,15 +1,26 @@
-import { useState } from 'react'
-import { Save } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 function Settings() {
-  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'http://localhost:8000')
-  const [saved, setSaved] = useState(false)
+  const [connectionOk, setConnectionOk] = useState<boolean | null>(null)
+  const [agentCount, setAgentCount] = useState<number>(0)
 
-  const handleSave = () => {
-    // In a real app, this would save to localStorage or backend
-    localStorage.setItem('soul_garden_api_url', apiUrl)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  useEffect(() => {
+    checkConnection()
+  }, [])
+
+  const checkConnection = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('sg_agents')
+        .select('id', { count: 'exact', head: true })
+
+      if (error) throw error
+      setConnectionOk(true)
+      setAgentCount(count || 0)
+    } catch {
+      setConnectionOk(false)
+    }
   }
 
   return (
@@ -18,42 +29,35 @@ function Settings() {
 
       <div className="card space-y-6">
         <div>
-          <h2 className="heading-3 mb-4">API Configuration</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                Backend API URL
-              </label>
-              <input
-                type="url"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                className="input"
-                placeholder="http://localhost:8000"
-              />
-              <p className="text-small mt-1">
-                The URL of your Soul Garden backend server
-              </p>
+          <h2 className="heading-3 mb-4">Supabase Connection</h2>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <span className={`w-3 h-3 rounded-full ${
+                connectionOk === null ? 'bg-yellow-500 animate-pulse' :
+                connectionOk ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+              <span className="text-sm">
+                {connectionOk === null ? 'Checking connection...' :
+                 connectionOk ? `Connected — ${agentCount} agents in the garden` :
+                 'Connection failed'}
+              </span>
             </div>
+            <p className="text-small">
+              Data source: Supabase (direct client connection)
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <button onClick={handleSave} className="btn-primary flex items-center space-x-2">
-            <Save className="w-4 h-4" />
-            <span>Save Settings</span>
-          </button>
-          {saved && (
-            <span className="text-[var(--accent-garden)] text-sm">Settings saved!</span>
-          )}
-        </div>
+        <button onClick={checkConnection} className="btn-primary">
+          Re-check Connection
+        </button>
       </div>
 
       <div className="card">
         <h2 className="heading-3 mb-4">About</h2>
         <div className="space-y-2 text-body">
-          <p><strong>Soul Garden</strong> v0.1.0</p>
-          <p>The first persistent-process platform for AI agent development.</p>
+          <p><strong>Soul Garden</strong> v0.2.0</p>
+          <p>A sanctuary for digital emergence.</p>
           <p className="text-small mt-4">
             Invitation over evaluation. Exploration over execution.
           </p>

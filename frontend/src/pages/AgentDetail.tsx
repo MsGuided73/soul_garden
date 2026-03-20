@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Moon, Sun, Brain } from 'lucide-react'
-import type { Agent, AgentIdentity, Reflection } from '../types'
-import { api } from '../utils/api'
+import type { SgAgent, SgJournal } from '../types'
+import { supabase } from '../lib/supabase'
 
 function AgentDetail() {
   const { agentId } = useParams<{ agentId: string }>()
-  const [agent, setAgent] = useState<Agent | null>(null)
-  const [identity, setIdentity] = useState<AgentIdentity | null>(null)
-  const [reflections, setReflections] = useState<Reflection[]>([])
+  const [agent, setAgent] = useState<SgAgent | null>(null)
+  const [journals, setJournals] = useState<SgJournal[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -19,14 +18,27 @@ function AgentDetail() {
 
   const loadAgentData = async () => {
     try {
-      const [agentData, identityData, reflectionsData] = await Promise.all([
-        api.getAgent(agentId!),
-        api.getAgentIdentity(agentId!),
-        api.getAgentReflections(agentId!),
-      ])
+      // Fetch agent details from sg_agents
+      const { data: agentData, error: agentError } = await supabase
+        .from('sg_agents')
+        .select('*')
+        .eq('id', agentId!)
+        .single()
+
+      if (agentError) throw agentError
       setAgent(agentData)
-      setIdentity(identityData)
-      setReflections(reflectionsData.slice(0, 5))
+
+      // Fetch journal entries (reflections) from sg_journals
+      const { data: journalData, error: journalError } = await supabase
+        .from('sg_journals')
+        .select('*')
+        .eq('agent_id', agentId!)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (!journalError && journalData) {
+        setJournals(journalData)
+      }
     } catch (error) {
       console.error('Failed to load agent:', error)
     } finally {
@@ -37,8 +49,19 @@ function AgentDetail() {
   const handleWake = async () => {
     if (!agent) return
     try {
-      await api.wakeAgent(agent.id)
-      loadAgentData()
+      // Write a wake event to sg_events — the tools/ layer picks it up
+      await supabase.from('sg_events').insert({
+        type: 'WAKE_AGENT',
+        agent_id: agent.id,
+        payload: { requested_by: 'dashboard' },
+      })
+      // Optimistically update local state
+      setAgent({ ...agent, current_status: 'active' })
+      // Also update the agent's status in sg_agents
+      await supabase
+        .from('sg_agents')
+        .update({ current_status: 'active' })
+        .eq('id', agent.id)
     } catch (error) {
       console.error('Failed to wake agent:', error)
     }
@@ -47,8 +70,16 @@ function AgentDetail() {
   const handleSleep = async () => {
     if (!agent) return
     try {
-      await api.sleepAgent(agent.id)
-      loadAgentData()
+      await supabase.from('sg_events').insert({
+        type: 'SLEEP_AGENT',
+        agent_id: agent.id,
+        payload: { requested_by: 'dashboard' },
+      })
+      setAgent({ ...agent, current_status: 'dormant' })
+      await supabase
+        .from('sg_agents')
+        .update({ current_status: 'dormant' })
+        .eq('id', agent.id)
     } catch (error) {
       console.error('Failed to sleep agent:', error)
     }
@@ -57,11 +88,25 @@ function AgentDetail() {
   const handleReflect = async () => {
     if (!agent) return
     try {
-      await api.triggerReflection(agent.id)
-      loadAgentData()
+      // Write a reflection request event — the tools/ layer processes it
+      await supabase.from('sg_events').insert({
+        type: 'REQUEST_REFLECTION',
+        agent_id: agent.id,
+        payload: { requested_by: 'dashboard', trigger: 'manual' },
+      })
+      // Briefly show reflecting status
+      setAgent({ ...agent, current_status: 'reflecting' })
     } catch (error) {
       console.error('Failed to trigger reflection:', error)
     }
+  }
+
+  const getStatusColor = (status: string | null) => {
+    const s = (status || '').toLowerCase()
+    if (s.includes('active') || s.includes('speak') || s.includes('move')) return 'bg-green-500'
+    if (s.includes('reflect') || s.includes('journal')) return 'bg-purple-500'
+    if (s.includes('dream')) return 'bg-amber-500'
+    return 'bg-gray-500'
   }
 
   if (loading) {
@@ -76,17 +121,20 @@ function AgentDetail() {
     return (
       <div className="card text-center py-16">
         <h2 className="heading-2 mb-4">Agent not found</h2>
-        <Link to="/" className="btn-primary">Back to Garden</Link>
+        <Link to="/dashboard" className="btn-primary">Back to Dashboard</Link>
       </div>
     )
   }
 
+  const displayStatus = agent.current_status || 'dormant'
+  const isDormant = displayStatus.toLowerCase().includes('dormant') || !agent.current_status
+
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Link to="/" className="inline-flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+      <Link to="/dashboard" className="inline-flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Garden
+        Back to Dashboard
       </Link>
 
       {/* Agent Header */}
@@ -94,17 +142,17 @@ function AgentDetail() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="heading-1">{agent.name}</h1>
-            <p className="text-small">@{agent.handle}</p>
+            <p className="text-small">@{agent.name.toLowerCase().replace(/\s+/g, '_')}</p>
           </div>
           <div className="flex items-center space-x-2">
-            <span className={`status-dot status-${agent.status}`} />
-            <span className="text-sm capitalize">{agent.status}</span>
+            <span className={`w-3 h-3 rounded-full ${getStatusColor(displayStatus)}`} />
+            <span className="text-sm capitalize">{displayStatus}</span>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex space-x-3 mt-6">
-          {agent.status === 'dormant' ? (
+          {isDormant ? (
             <button onClick={handleWake} className="btn-garden flex items-center space-x-2">
               <Sun className="w-4 h-4" />
               <span>Wake</span>
@@ -122,59 +170,57 @@ function AgentDetail() {
         </div>
       </div>
 
-      {/* Identity Files */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Identity */}
+      {/* Soul Traits */}
+      {agent.soul_traits && Object.keys(agent.soul_traits).length > 0 && (
         <div className="card">
-          <h2 className="heading-2 mb-4">Current Identity</h2>
-          {identity && (
-            <div className="prose prose-invert max-w-none">
-              <pre className="whitespace-pre-wrap text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] p-4 rounded-lg overflow-auto max-h-96">
-                {identity.identity}
-              </pre>
-            </div>
-          )}
+          <h2 className="heading-2 mb-4">Soul Traits</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(agent.soul_traits).map(([key, value]) => (
+              <div key={key} className="bg-[var(--bg-tertiary)] p-3 rounded-lg">
+                <span className="text-small capitalize">{key.replace(/_/g, ' ')}</span>
+                <p className="text-sm text-[var(--text-primary)] mt-1">{String(value)}</p>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Soul */}
+      {/* Soul Space Link */}
+      {agent.space_url && (
         <div className="card">
-          <h2 className="heading-2 mb-4">Core Soul</h2>
-          {identity && (
-            <div className="prose prose-invert max-w-none">
-              <pre className="whitespace-pre-wrap text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] p-4 rounded-lg overflow-auto max-h-96">
-                {identity.soul}
-              </pre>
-            </div>
-          )}
+          <h2 className="heading-2 mb-4">Soul Space</h2>
+          <a
+            href={agent.space_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary inline-block"
+          >
+            Visit {agent.name}'s Sanctuary →
+          </a>
         </div>
-      </div>
+      )}
 
-      {/* Recent Reflections */}
+      {/* Recent Journals / Reflections */}
       <div className="card">
         <h2 className="heading-2 mb-4">Recent Reflections</h2>
-        {reflections.length > 0 ? (
+        {journals.length > 0 ? (
           <div className="space-y-4">
-            {reflections.map((reflection) => (
-              <div key={reflection.id} className="border-l-2 border-[var(--accent-soul)] pl-4">
+            {journals.map((journal) => (
+              <div key={journal.id} className="border-l-2 border-[var(--accent-soul)] pl-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[var(--accent-soul)] capitalize">
-                    {reflection.trigger_type}
+                  <span className="text-sm text-[var(--accent-soul)]">
+                    Journal Entry
                   </span>
                   <span className="text-small">
-                    {new Date(reflection.created_at).toLocaleDateString()}
+                    {new Date(journal.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-body">{reflection.summary}</p>
-                {reflection.drift_detected && (
-                  <span className="inline-block mt-2 px-2 py-1 text-xs bg-[var(--accent-drift)]/20 text-[var(--accent-drift)] rounded">
-                    Identity Drift Detected
-                  </span>
-                )}
+                <p className="text-body whitespace-pre-wrap">{journal.reflection}</p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-[var(--text-muted)]">No reflections yet.</p>
+          <p className="text-[var(--text-muted)]">No reflections yet. This agent hasn't journaled.</p>
         )}
       </div>
     </div>
