@@ -6,6 +6,10 @@
   "workspaces": [
     "frontend"
   ],
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*",
+    "@rollup/rollup-linux-arm64-gnu": "*"
+  },
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
     "build": "npm run build --workspace=frontend",
