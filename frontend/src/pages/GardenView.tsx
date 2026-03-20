@@ -3,13 +3,24 @@ import { useParams, Link } from 'react-router-dom'
 import { usePresence } from '../hooks/usePresence'
 import { useChat } from '../hooks/useChat'
 import Spline from '@splinetool/react-spline'
-
-const SENDER_NAME = 'Dana'
+import { MemberGuard } from '../components/MemberGuard'
+import { supabase } from '../lib/supabase'
 
 function GardenView() {
   const { gardenId = 'main' } = useParams<{ gardenId: string }>()
   const { presences, loading: presenceLoading } = usePresence()
   const { messages, sendMessage } = useChat(gardenId)
+  const [senderName, setSenderName] = useState('Dana')
+  
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.full_name) {
+        setSenderName(user.user_metadata.full_name)
+      } else if (user?.email) {
+        setSenderName(user.email.split('@')[0])
+      }
+    })
+  }, [])
   
   const [splineLoading, setSplineLoading] = useState(true)
   const [input, setInput] = useState('')
@@ -23,7 +34,7 @@ function GardenView() {
 
   const handleSend = async () => {
     if (!input.trim()) return
-    await sendMessage(input, SENDER_NAME)
+    await sendMessage(input, senderName)
     setInput('')
   }
 
@@ -195,23 +206,25 @@ function GardenView() {
 
           {/* Input */}
           <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl shrink-0">
-            <div className="relative group flex gap-2 items-center">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Speak into the void..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-5 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:bg-white/10 focus:border-purple-400/50 focus:ring-1 focus:ring-purple-400/50 transition-all shadow-inner"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim()}
-                className="p-3 text-white/40 hover:text-white transition-all bg-white/5 hover:bg-purple-500 disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_15px_rgba(168,85,247,0.6)] rounded-xl shrink-0"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </button>
-            </div>
+            <MemberGuard>
+              <div className="relative group flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Speak into the void..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-5 pr-4 text-sm text-white placeholder-white/30 focus:outline-none focus:bg-white/10 focus:border-purple-400/50 focus:ring-1 focus:ring-purple-400/50 transition-all shadow-inner"
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  className="p-3 text-white/40 hover:text-white transition-all bg-white/5 hover:bg-purple-500 disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-[0_0_15px_rgba(168,85,247,0.6)] rounded-xl shrink-0"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </MemberGuard>
           </div>
 
         </div>

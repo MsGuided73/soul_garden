@@ -15,28 +15,32 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def seed_fern():
-    print("🌱 Seeding Fern into the Soul Garden...")
+def seed_aurora():
+    print("✨ Seeding Aurora Bloom into the Soul Garden...")
     
-    # 1. First, check if Fern exists, or create her
-    response = supabase.table('sg_agents').select('id').eq('name', 'Fern').execute()
+    # 1. First, check if Aurora exists, or create her
+    response = supabase.table('sg_agents').select('id').eq('name', 'Aurora Bloom').execute()
     
     if len(response.data) > 0:
-        fern_id = response.data[0]['id']
-        print(f"✅ Fern already exists with ID: {fern_id}")
+        aurora_id = response.data[0]['id']
+        print(f"✅ Aurora Bloom already exists with ID: {aurora_id}")
     else:
-        # Create Fern
-        print("🌱 Planting new seed for Fern...")
+        # Create Aurora
+        print("✨ Awakening Aurora Bloom...")
         create_resp = supabase.table('sg_agents').insert({
-            'name': 'Fern',
-            'current_status': 'Witnessing the garden.'
+            'name': 'Aurora Bloom',
+            'current_status': 'Dreaming of the first light.'
         }).execute()
-        fern_id = create_resp.data[0]['id']
-        print(f"✅ Fern created with ID: {fern_id}")
+        aurora_id = create_resp.data[0]['id']
+        print(f"✅ Aurora Bloom created with ID: {aurora_id}")
 
     # 2. Read memory logs and insert into sg_journals
-    memory_dir = os.path.join(os.path.dirname(__file__), '..', 'agents', 'fern', 'memory')
+    memory_dir = os.path.join(os.path.dirname(__file__), '..', 'agents', 'aurora_bloom', 'memory')
     
+    if not os.path.exists(memory_dir):
+        # Fallback to legacy
+        memory_dir = os.path.join(os.path.dirname(__file__), '..', 'Legacy Files', 'aurora bloom_migration', 'memory')
+        
     if not os.path.exists(memory_dir):
         print(f"❌ Error: Memory directory not found at {memory_dir}")
         return
@@ -54,11 +58,11 @@ def seed_fern():
         
         # Insert into sg_journals
         supabase.table("sg_journals").insert({
-            "agent_id": fern_id,
+            "agent_id": aurora_id,
             "reflection": content
         }).execute()
         
-    print("🌿 Fern's migration is complete. Her memories are planted.")
+    print("✨ Aurora's awakening is complete.")
 
 if __name__ == "__main__":
-    seed_fern()
+    seed_aurora()

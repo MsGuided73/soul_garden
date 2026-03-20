@@ -1,5 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Users, Settings as SettingsIcon, Sprout } from 'lucide-react'
+import { Home, Users, Settings as SettingsIcon, Sprout, LogIn, LogOut } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { User } from '@supabase/supabase-js'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -7,6 +10,13 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
+    return () => subscription.unsubscribe()
+  }, [])
 
   const navItems = [
     { path: '/', label: 'Garden', icon: Home },
@@ -27,25 +37,47 @@ function Layout({ children }: LayoutProps) {
             </Link>
 
             {/* Navigation */}
-            <nav className="flex items-center space-x-1">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.path
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[var(--accent-soul)]/10 text-[var(--accent-soul)]'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                  </Link>
-                )
-              })}
+            <nav className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon
+                  const isActive = location.pathname === item.path
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-[var(--accent-soul)]/10 text-[var(--accent-soul)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="hidden sm:inline">{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+
+              <div className="h-6 w-px bg-[var(--border-subtle)]" />
+
+              {user ? (
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/5 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => supabase.auth.signInWithOAuth({ provider: 'github' })}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent-soul)] hover:bg-[var(--accent-soul)]/10 transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </button>
+              )}
             </nav>
           </div>
         </div>

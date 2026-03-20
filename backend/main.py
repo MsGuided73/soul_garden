@@ -76,14 +76,38 @@ def create_app() -> FastAPI:
             "version": settings.APP_VERSION
         }
     
-    @app.get("/")
-    async def root():
-        """Root endpoint."""
-        return {
-            "message": f"Welcome to {settings.APP_NAME}",
-            "version": settings.APP_VERSION,
-            "docs": "/docs"
-        }
+    # Static files and Frontend Single Page App (SPA) support
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    import os
+
+    # Look for frontend/dist relative to the root or backend folder
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+    if not os.path.exists(frontend_path):
+        # Fallback for different directory structures in production
+        frontend_path = os.path.join(os.getcwd(), "frontend", "dist")
+
+    if os.path.exists(frontend_path):
+        app.mount("/assets", StaticFiles(directory=os.path.join(frontend_path, "assets")), name="assets")
+        
+        @app.get("/{full_path:path}")
+        async def serve_frontend(full_path: str):
+            # API routes should have been handled by routers above.
+            # If we get here, it's a frontend route or asset.
+            file_path = os.path.join(frontend_path, full_path)
+            if os.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(os.path.join(frontend_path, "index.html"))
+    else:
+        @app.get("/")
+        async def root():
+            """Root endpoint (fallback)."""
+            return {
+                "message": f"Welcome to {settings.APP_NAME}",
+                "version": settings.APP_VERSION,
+                "docs": "/docs",
+                "warning": "Frontend build not found. Please run 'npm run build' in the frontend directory."
+            }
     
     return app
 
