@@ -19,12 +19,75 @@ def forge_app(agent_id, app_name, stack, prompt):
     # Run the actual scaffolding command
     try:
         if stack == "vite-react-tailwind":
-            subprocess.run(["npx", "-y", "create-vite@latest", ".", "--template", "react-ts"], cwd=work_dir, check=True)
-            # Add Tailwind (simplified for this script, in practice would need more steps)
-            print("Vite scaffolded successfully.")
+            subprocess.run(["npx", "-y", "create-vite@latest", ".", "--", "--template", "react-ts"], cwd=work_dir, check=True, shell=True)
+            
+            # 1. Inject GardenPortal component
+            portal_content = """
+import React from 'react';
+
+export const GardenPortal: React.FC = () => {
+  return (
+    <a 
+      href="https://soulgarden.us" 
+      className="fixed bottom-8 left-8 z-50 flex items-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all shadow-2xl group"
+    >
+      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse group-hover:shadow-[0_0_10px_rgba(52,211,153,1)]" />
+      <span className="text-xs font-bold tracking-widest uppercase">Return to Garden</span>
+    </a>
+  );
+};
+"""
+            os.makedirs(os.path.join(work_dir, "src", "components"), exist_ok=True)
+            with open(os.path.join(work_dir, "src", "components", "GardenPortal.tsx"), "w") as f:
+                f.write(portal_content)
+
+            # 2. Add to App.tsx
+            app_tsx_path = os.path.join(work_dir, "src", "App.tsx")
+            with open(app_tsx_path, "r") as f:
+                content = f.read()
+            
+            new_content = content.replace("import './App.css'", "import './App.css'\nimport { GardenPortal } from './components/GardenPortal'")
+            if "</>" in new_content:
+                new_content = new_content.replace("</>", "  <GardenPortal />\n    </>")
+            else:
+                # Fallback if structure is different
+                new_content += "\n// Portal added at end\n"
+            
+            with open(app_tsx_path, "w") as f:
+                f.write(new_content)
+
+            # 3. Add Nixpacks configuration for deployment
+            nixpacks_content = """
+[phases.setup]
+nixPkgs = ["nodePackages.npm"]
+
+[phases.build]
+cmds = ["npm install", "npm run build"]
+
+[start]
+cmd = "npm run preview -- --port 3000 --host"
+"""
+            with open(os.path.join(work_dir, "nixpacks.toml"), "w") as f:
+                f.write(nixpacks_content)
+
+            print("Vite scaffolded and portal injected.")
+            
         elif stack == "html-vanilla-js":
+            portal_html = """
+    <div style="position: fixed; bottom: 30px; left: 30px; z-index: 999;">
+        <a href="https://soulgarden.us" style="display: flex; align-items: center; gap: 10px; padding: 12px 24px; background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 50px; color: rgba(255,255,255,0.7); text-decoration: none; font-family: sans-serif; font-size: 11px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: #4ade80;"></div>
+            Return to Garden
+        </a>
+    </div>
+"""
             with open(os.path.join(work_dir, "index.html"), "w") as f:
-                f.write(f"<html><body><h1>{app_name}</h1><p>Welcome to your Soul Space.</p></body></html>")
+                f.write(f"<html><body style='background: #05050f; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;'><div><h1>{app_name}</h1><p>{prompt}</p></div>{portal_html}</body></html>")
+            
+            # Nixpacks for HTML
+            with open(os.path.join(work_dir, "nixpacks.toml"), "w") as f:
+                f.write("[start]\ncmd = 'npx -y serve . -p 3000'")
+
     except Exception as e:
         return {"status": "error", "message": f"Scaffolding failed: {str(e)}"}
     

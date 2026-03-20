@@ -11,15 +11,24 @@ def run_git_command(args, cwd):
         print(f"Git Error: {result.stderr}")
     return result
 
-def deploy_app(app_id, github_token, repo_name, local_path):
+def deploy_app(app_id, repo_name, local_path, github_token=None):
     """
     Pushes code to GitHub to trigger Coolify deployment.
     """
+    token = github_token or os.getenv("GITHUB_PAT")
+    if not token:
+        # Try to fetch from Supabase sg_secrets (mocked for now, in practice use supabase client)
+        print("Warning: No GitHub token provided. Attempting to fetch from environment...")
+        token = os.getenv("GITHUB_TOKEN")
+    
+    if not token:
+        return {"status": "error", "message": "No GitHub token found in env or arguments."}
+
     print(f"Deploying App {app_id} to GitHub repo {repo_name}...")
     
     # 1. Create GitHub Repo if it doesn't exist
     headers = {
-        "Authorization": f"token {github_token}",
+        "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json"
     }
     
@@ -49,7 +58,7 @@ def deploy_app(app_id, github_token, repo_name, local_path):
     run_git_command(["branch", "-M", "main"], abs_local_path)
     
     # Remote setup
-    remote_url = f"https://{github_token}@github.com/{username}/{repo_name}.git"
+    remote_url = f"https://{token}@github.com/{username}/{repo_name}.git"
     run_git_command(["remote", "remove", "origin"], abs_local_path) # Clean up if exists
     run_git_command(["remote", "add", "origin", remote_url], abs_local_path)
     
