@@ -203,7 +203,7 @@ override.tf.json
 terraform.rc
 
 # Docker
-.dockerignore
+# .dockerignore — tracked (needed for builds)
 
 # Kubernetes
 kubeconfig

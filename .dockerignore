@@ -1,0 +1,82 @@
+# =============================================================================
+# Soul Garden — Docker Ignore
+# Keeps the build context lean and prevents secret leakage
+# =============================================================================
+
+# Git
+.git
+.gitignore
+
+# Environment files (secrets — NEVER include)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Node modules (rebuilt inside Docker)
+node_modules/
+frontend/node_modules/
+
+# Frontend build output (rebuilt inside Docker)
+frontend/dist/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (not needed at runtime)
+*.md
+docs/
+architecture/
+Legacy Files/
+Retirement/
+TailScale/
+
+# Layer 3 tools (run separately per A.N.T. architecture)
+tools/
+
+# Database migrations and schemas (reference only)
+database/
+
+# Temporary files
+.tmp/
+*.tmp
+*.bak
+*.log
+
+# Agents directory (local only)
+agents/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Misc non-runtime files
+*.pdf
+*.docx
+drift_log.json
+soul_loader.py
+sumner_soul.md
+lore.md
+AGENT_GUIDELINES.md
+skill-creator-current.md
+
+# Disabled config
+nixpacks.toml.disabled
