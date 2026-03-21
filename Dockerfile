@@ -11,8 +11,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/
 
-# Install all dependencies (workspace-aware)
-RUN npm install
+# Install dependencies (ignoring the Windows lockfile to force raw Linux binaries)
+RUN rm -f package-lock.json && npm install
 
 # Copy frontend source
 COPY frontend/ frontend/
