@@ -34,6 +34,9 @@ def deploy_app(app_id, repo_name, local_path, github_token=None):
     
     # Check if repo exists
     user_resp = requests.get("https://api.github.com/user", headers=headers)
+    if user_resp.status_code != 200:
+        print(f"DEBUG: GitHub API returned {user_resp.status_code}")
+        print(f"DEBUG: Response text: {user_resp.text}")
     username = user_resp.json()["login"]
     
     repo_url = f"https://api.github.com/repos/{username}/{repo_name}"
@@ -81,5 +84,5 @@ if __name__ == "__main__":
         sys.exit(1)
     
     app_id, github_token, repo_name, local_path = sys.argv[1:5]
-    result = deploy_app(app_id, github_token, repo_name, local_path)
+    result = deploy_app(app_id, repo_name, local_path, github_token=github_token)
     print(json.dumps(result))
