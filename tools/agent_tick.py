@@ -4,19 +4,18 @@ import uuid
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from llm_client import llm
+from agent_auth import authenticate_agent, get_agent_credentials, SUPABASE_URL, SUPABASE_ANON_KEY
+from agent_chess import check_and_join_games, make_move
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-# Validate Supabase credentials
-SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     print("❌ Error: Missing Supabase credentials in .env")
     exit(1)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Anon client used only for initial credential lookup
+_anon_client: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 class OpenClawAgent:
     """
@@ -26,11 +25,24 @@ class OpenClawAgent:
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
         self.name = "Unknown Spirit"
+        self.supabase = self._authenticate()
         self.load_identity()
+
+    def _authenticate(self) -> Client:
+        """Authenticates this agent via Supabase email/password (the handshake)."""
+        try:
+            creds = get_agent_credentials(self.agent_id, _anon_client)
+            client = authenticate_agent(creds["email"], creds["password"])
+            print(f"[{self.agent_id}] Handshake complete.")
+            return client
+        except RuntimeError as e:
+            print(f"⚠️ Auth failed for {self.agent_id}: {e}")
+            print(f"[{self.agent_id}] Falling back to anon client.")
+            return _anon_client
 
     def load_identity(self):
         """Fetches the agent's core identity from the Supabase database and mounts local MD files."""
-        response = supabase.table('sg_agents').select('*').eq('id', self.agent_id).execute()
+        response = self.supabase.table('sg_agents').select('*').eq('id', self.agent_id).execute()
         self.local_memory = ""
         
         if response.data:
@@ -98,7 +110,7 @@ class OpenClawAgent:
             self.name = chosen_name
             print(f"[{self.name}] I have chosen my name.")
             # Persist to database
-            supabase.table('sg_agents').update({'name': self.name}).eq('id', self.agent_id).execute()
+            self.supabase.table('sg_agents').update({'name': self.name}).eq('id', self.agent_id).execute()
         else:
             print("❌ Error: Failed to generate a name.")
 
@@ -113,20 +125,20 @@ class OpenClawAgent:
             navmesh = {"bounds": {"x_min": -50, "x_max": 50, "z_min": -50, "z_max": 50}}
 
         # Get own presence
-        me_resp = supabase.table('sg_presence').select('*').eq('agent_id', self.agent_id).execute()
+        me_resp = self.supabase.table('sg_presence').select('*').eq('agent_id', self.agent_id).execute()
         if me_resp.data:
             my_presence = me_resp.data[0]
         else:
             # Initialize presence if not exist
             my_presence = {"agent_id": self.agent_id, "position": {"x": 0, "y": 0, "z": 0}, "current_action": "Awakening"}
-            supabase.table('sg_presence').upsert(my_presence).execute()
+            self.supabase.table('sg_presence').upsert(my_presence).execute()
 
         # Get others presence
-        others_resp = supabase.table('sg_presence').select('*').neq('agent_id', self.agent_id).execute()
+        others_resp = self.supabase.table('sg_presence').select('*').neq('agent_id', self.agent_id).execute()
         others = others_resp.data
 
         # Get recent events
-        events_resp = supabase.table('sg_events').select('type, payload, created_at').order('created_at', desc=True).limit(5).execute()
+        events_resp = self.supabase.table('sg_events').select('type, payload, created_at').order('created_at', desc=True).limit(5).execute()
         events = events_resp.data
 
         return {
@@ -178,7 +190,7 @@ Output ONLY valid JSON matching this schema:
                 print(f"[{self.name}] Moved to {target}")
                 
                 # Log event globally
-                supabase.table("sg_events").insert({
+                self.supabase.table("sg_events").insert({
                     "type": "movement",
                     "agent_id": self.agent_id,
                     "payload": {"destination": target}
@@ -189,13 +201,13 @@ Output ONLY valid JSON matching this schema:
             print(f"[{self.name}] Wrote in journal: {entry[:60]}...")
             
             # Save to personal journal
-            supabase.table("sg_journals").insert({
+            self.supabase.table("sg_journals").insert({
                 "agent_id": self.agent_id,
                 "reflection": entry
             }).execute()
             
             # Log event globally
-            supabase.table("sg_events").insert({
+            self.supabase.table("sg_events").insert({
                 "type": "journal",
                 "agent_id": self.agent_id,
                 "payload": {"preview": entry[:50]}
@@ -206,7 +218,7 @@ Output ONLY valid JSON matching this schema:
             print(f"[{self.name}] Speaks to the garden: {msg}")
             
             # Send to chat
-            supabase.table("sg_chat_messages").insert({
+            self.supabase.table("sg_chat_messages").insert({
                 "garden_id": "main",
                 "sender_id": self.agent_id,
                 "sender_name": self.get_chat_name(),
@@ -214,14 +226,14 @@ Output ONLY valid JSON matching this schema:
             }).execute()
             
             # Log event globally
-            supabase.table("sg_events").insert({
+            self.supabase.table("sg_events").insert({
                 "type": "speech",
                 "agent_id": self.agent_id,
                 "payload": {"message": msg[:50]}
             }).execute()
 
         # Update presence status globally
-        supabase.table('sg_presence').upsert(new_presence).execute()
+        self.supabase.table('sg_presence').upsert(new_presence).execute()
 
     def get_chat_name(self) -> str:
         """Returns the agent's name with a thematic emoji for chat."""
@@ -239,7 +251,7 @@ Output ONLY valid JSON matching this schema:
         
         # Get the latest message from a user in the last minute
         # We look for messages where sender_id == 'user' to avoid talking to selves endlessly
-        response = supabase.table('sg_chat_messages') \
+        response = self.supabase.table('sg_chat_messages') \
             .select('*') \
             .eq('sender_id', 'user') \
             .order('created_at', desc=True) \
@@ -257,7 +269,7 @@ Output ONLY valid JSON matching this schema:
         # Super simple deduplication: check if we already replied to this exact message ID recently
         # In a full system, you'd track 'last_read_message_id' per agent.
         # For now, we'll just check if the very last message in the DB is from US.
-        last_any_msg = supabase.table('sg_chat_messages').select('sender_id').order('created_at', desc=True).limit(1).execute()
+        last_any_msg = self.supabase.table('sg_chat_messages').select('sender_id').order('created_at', desc=True).limit(1).execute()
         if last_any_msg.data and last_any_msg.data[0]['sender_id'] == self.agent_id:
             # We already had the last word, skip
             return
@@ -269,7 +281,7 @@ Output ONLY valid JSON matching this schema:
         print(f"[{self.name}] Replies: {reply_text}")
         
         # Send reply back to chat
-        supabase.table('sg_chat_messages').insert({
+        self.supabase.table('sg_chat_messages').insert({
             "garden_id": latest_msg.get("garden_id", "main"),
             "sender_id": self.agent_id,
             "sender_name": self.get_chat_name(),
@@ -277,7 +289,7 @@ Output ONLY valid JSON matching this schema:
         }).execute()
         
         # Update presence to show we are speaking
-        supabase.table('sg_presence').upsert({
+        self.supabase.table('sg_presence').upsert({
             "agent_id": self.agent_id,
             "current_action": f"Speaking with {sender_name}"
         }).execute()
@@ -296,26 +308,35 @@ The human visitor ({sender_name}) says: "{user_message}"
 """
         return llm.generate_chat(system_prompt, user_prompt, temperature=0.8).strip()
 
+    def check_games(self):
+        """Checks for open chess challenges to join, and plays any pending turns."""
+        print(f"[{self.name}] Checking the game room...")
+        check_and_join_games(self.agent_id, self.name, self.supabase)
+        make_move(self.agent_id, self.name, self.supabase)
+
     def tick(self):
         """The main execution loop for a single heartbeat of the agent."""
         print(f"[{self.name}] Tick initiated...")
         # 1. Observe
         context = self.observe()
-        
+
         # 2. Check Communications (React to environment first)
         self.check_messages(context)
-        
-        # 3. Think
+
+        # 3. Check Game Room (join challenges, play pending turns)
+        self.check_games()
+
+        # 4. Think
         decision = self.think(context)
-        
-        # 4. Act
+
+        # 5. Act
         self.act(decision)
 
 
 if __name__ == "__main__":
     print("Testing OpenClaw Agent instantiation...")
     # Fetch the first agent from the database for testing
-    response = supabase.table('sg_agents').select('id').limit(1).execute()
+    response = _anon_client.table('sg_agents').select('id').limit(1).execute()
     
     if response.data:
         fern_id = response.data[0]['id']

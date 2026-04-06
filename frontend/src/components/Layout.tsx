@@ -1,8 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Users, Settings as SettingsIcon, Sprout, LogIn, LogOut } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { User } from '@supabase/supabase-js'
+import { Home, Users, Settings as SettingsIcon, Sprout, LogIn, LogOut, Film, Shield, Swords } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -10,17 +8,16 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   const location = useLocation()
-  const [user, setUser] = useState<User | null>(null)
+  const { user, profile, signOut } = useAuth()
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
-    return () => subscription.unsubscribe()
-  }, [])
+  const isAdmin = profile?.role === 'admin'
 
   const navItems = [
     { path: '/', label: 'Garden', icon: Home },
     { path: '/agents', label: 'Agents', icon: Users },
+    { path: '/studio', label: 'Studio', icon: Film },
+    { path: '/games', label: 'Games', icon: Swords },
+    ...(isAdmin ? [{ path: '/moderation', label: 'Moderation', icon: Shield }] : []),
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ]
 
@@ -62,21 +59,31 @@ function Layout({ children }: LayoutProps) {
               <div className="h-6 w-px bg-[var(--border-subtle)]" />
 
               {user ? (
-                <button
-                  onClick={() => supabase.auth.signOut()}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/5 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </button>
+                <div className="flex items-center space-x-3">
+                  {profile && (
+                    <span className="text-sm text-[var(--text-muted)] hidden sm:inline">
+                      {profile.display_name}
+                      {profile.role === 'admin' && (
+                        <span className="ml-1.5 text-xs text-[var(--accent-drift)]">admin</span>
+                      )}
+                    </span>
+                  )}
+                  <button
+                    onClick={signOut}
+                    className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-[var(--text-secondary)] hover:text-red-400 hover:bg-red-400/5 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </button>
+                </div>
               ) : (
-                <button
-                  onClick={() => supabase.auth.signInWithOAuth({ provider: 'github' })}
+                <Link
+                  to="/signin"
                   className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent-soul)] hover:bg-[var(--accent-soul)]/10 transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
                   <span className="hidden sm:inline">Sign In</span>
-                </button>
+                </Link>
               )}
             </nav>
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { moderateContent } from '../lib/moderation'
 
 export interface ChatMessage {
   id: string
@@ -57,8 +58,22 @@ export function useChat(gardenId: string = 'main') {
     }
   }, [gardenId])
 
-  const sendMessage = async (content: string, senderName: string = 'Dana') => {
-    if (!content.trim()) return
+  const sendMessage = async (content: string, senderName: string = 'Dana'): Promise<{ blocked: boolean; reason?: string }> => {
+    if (!content.trim()) return { blocked: false }
+
+    // Run content filter
+    const result = moderateContent(content)
+    if (!result.allowed) {
+      // Log to moderation table
+      await supabase.from('sg_moderation_log').insert({
+        content: content.trim(),
+        sender_id: 'user',
+        sender_name: senderName,
+        reason: result.reason,
+        action: result.action,
+      })
+      return { blocked: true, reason: result.reason }
+    }
 
     const optimistic: ChatMessage = {
       id: crypto.randomUUID(),
@@ -79,6 +94,8 @@ export function useChat(gardenId: string = 'main') {
       sender_name: senderName,
       content: content.trim(),
     })
+
+    return { blocked: false }
   }
 
   return { messages, loading, sendMessage }

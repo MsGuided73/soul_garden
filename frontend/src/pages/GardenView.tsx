@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { usePresence } from '../hooks/usePresence'
 import { useChat } from '../hooks/useChat'
 import Spline from '@splinetool/react-spline'
 import { MemberGuard } from '../components/MemberGuard'
+import ReportModal from '../components/ReportModal'
 import { supabase } from '../lib/supabase'
 
 function GardenView() {
@@ -24,6 +26,8 @@ function GardenView() {
   
   const [splineLoading, setSplineLoading] = useState(true)
   const [input, setInput] = useState('')
+  const [modWarning, setModWarning] = useState<string | null>(null)
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(null)
   const [audioPlaying, setAudioPlaying] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -34,7 +38,12 @@ function GardenView() {
 
   const handleSend = async () => {
     if (!input.trim()) return
-    await sendMessage(input, senderName)
+    setModWarning(null)
+    const result = await sendMessage(input, senderName)
+    if (result?.blocked) {
+      setModWarning('Message not sent — it may violate our Code of Conduct.')
+      return
+    }
     setInput('')
   }
 
@@ -78,9 +87,12 @@ function GardenView() {
 
       {/* ── 3D Spline Overlay ───────────────────────────────────────── */}
       <div className={`absolute inset-0 z-0 transition-opacity duration-1000 ${splineLoading ? 'opacity-0' : 'opacity-100'}`}>
-        <Spline 
-          scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode" 
-          onLoad={() => setSplineLoading(false)}
+        <Spline
+          scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode"
+          onLoad={(app) => {
+            app.setBackgroundColor('transparent')
+            setSplineLoading(false)
+          }}
           style={{ background: 'transparent' }}
         />
       </div>
@@ -97,7 +109,7 @@ function GardenView() {
 
       {/* ── Agent Orbs ────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-10 pointer-events-none">
-        {!presenceLoading && Object.values(presences).map((agent: any) => {
+        {!presenceLoading && Object.values(presences).map((agent) => {
           const leftPercent = mapCoordToScreen(agent.position?.x || 0)
           const topPercent  = mapCoordToScreen(agent.position?.z || 0)
           return (
@@ -190,12 +202,23 @@ function GardenView() {
                       </span>
                       <span className="text-white/25 text-[10px]">{formatTime(msg.created_at)}</span>
                     </div>
-                    <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm text-white/90 leading-relaxed ${
-                      isUser
-                        ? 'bg-purple-600/30 border border-purple-400/20 rounded-tr-sm'
-                        : 'bg-white/5 border border-white/10 rounded-tl-sm'
-                    }`}>
-                      {msg.content}
+                    <div className="group/msg relative max-w-[85%]">
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm text-white/90 leading-relaxed ${
+                        isUser
+                          ? 'bg-purple-600/30 border border-purple-400/20 rounded-tr-sm'
+                          : 'bg-white/5 border border-white/10 rounded-tl-sm'
+                      }`}>
+                        {msg.content}
+                      </div>
+                      {!isUser && (
+                        <button
+                          onClick={() => setReportingMessageId(msg.id)}
+                          className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity text-white/20 hover:text-red-400 text-xs"
+                          title="Report message"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -206,6 +229,11 @@ function GardenView() {
 
           {/* Input */}
           <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl shrink-0">
+            {modWarning && (
+              <div className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                {modWarning}
+              </div>
+            )}
             <MemberGuard>
               <div className="relative group flex gap-2 items-center">
                 <input
@@ -229,6 +257,13 @@ function GardenView() {
 
         </div>
       </div>
+      {/* Report Modal */}
+      {reportingMessageId && (
+        <ReportModal
+          messageId={reportingMessageId}
+          onClose={() => setReportingMessageId(null)}
+        />
+      )}
     </div>
   )
 }
