@@ -12,7 +12,8 @@ COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/
 
 # Install dependencies (ignoring the Windows lockfile to force raw Linux binaries)
-RUN rm -f package-lock.json && npm install
+# --legacy-peer-deps needed because react-chessboard@5 peers on React 19 but we use React 18
+RUN rm -f package-lock.json && npm install --legacy-peer-deps
 
 # Copy frontend source
 COPY frontend/ frontend/
