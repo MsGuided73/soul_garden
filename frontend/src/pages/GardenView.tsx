@@ -88,7 +88,7 @@ function GardenView() {
       {/* ── 3D Spline Overlay ───────────────────────────────────────── */}
       <div className={`absolute inset-0 z-0 transition-opacity duration-1000 ${splineLoading ? 'opacity-0' : 'opacity-100'}`}>
         <Spline
-          scene="https://prod.spline.design/6Wq1Q7YGyM-iab9i/scene.splinecode"
+          scene="https://prod.spline.design/ePuqr8YGdQQ1RM1h/scene.splinecode"
           onLoad={(app) => {
             app.setBackgroundColor('transparent')
             setSplineLoading(false)
