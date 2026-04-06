@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Moon, Sun, Brain } from 'lucide-react'
+import { ArrowLeft, Moon, Sun, Brain, Save } from 'lucide-react'
 import type { SgAgent, SgJournal } from '../types'
 import { supabase } from '../lib/supabase'
 
@@ -9,6 +9,8 @@ function AgentDetail() {
   const [agent, setAgent] = useState<SgAgent | null>(null)
   const [journals, setJournals] = useState<SgJournal[]>([])
   const [loading, setLoading] = useState(true)
+  const [newEntry, setNewEntry] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (agentId) {
@@ -82,6 +84,24 @@ function AgentDetail() {
         .eq('id', agent.id)
     } catch (error) {
       console.error('Failed to sleep agent:', error)
+    }
+  }
+
+  const handleSaveJournal = async () => {
+    if (!agent || !newEntry.trim()) return
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('sg_journals').insert({
+        agent_id: agent.id,
+        reflection: newEntry.trim(),
+      })
+      if (error) throw error
+      setNewEntry('')
+      loadAgentData()
+    } catch (error) {
+      console.error('Failed to save journal entry:', error)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -199,6 +219,28 @@ function AgentDetail() {
           </a>
         </div>
       )}
+
+      {/* New Journal Entry */}
+      <div className="card">
+        <h2 className="heading-2 mb-4">New Journal Entry</h2>
+        <textarea
+          value={newEntry}
+          onChange={(e) => setNewEntry(e.target.value)}
+          placeholder="Write a reflection..."
+          rows={4}
+          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] rounded-lg p-3 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-soul)] resize-y"
+        />
+        <div className="flex justify-end mt-3">
+          <button
+            onClick={handleSaveJournal}
+            disabled={!newEntry.trim() || saving}
+            className="btn-primary flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Save className="w-4 h-4" />
+            <span>{saving ? 'Saving...' : 'Save Entry'}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Recent Journals / Reflections */}
       <div className="card">
