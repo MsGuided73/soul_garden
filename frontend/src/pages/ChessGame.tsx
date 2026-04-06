@@ -89,8 +89,7 @@ export default function ChessGame() {
     return game.player_white === user.id || game.player_black === user.id
   }
 
-  const onDrop = ({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
-    if (!targetSquare) return false
+  const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
     if (!isMyTurn() || !game) return false
 
     const gameCopy = new Chess(chess.fen())
@@ -189,19 +188,17 @@ export default function ChessGame() {
         <div className="lg:col-span-2">
           <div className="glass-panel rounded-2xl p-4 sm:p-6">
             <Chessboard
-              options={{
-                position: chess.fen(),
-                onPieceDrop: onDrop,
-                boardOrientation: boardOrientation,
-                allowDragging: isMyTurn(),
-                animationDurationInMs: 200,
-                boardStyle: {
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
-                },
-                darkSquareStyle: { backgroundColor: '#4a3766' },
-                lightSquareStyle: { backgroundColor: '#1a1a2e' },
+              position={chess.fen()}
+              onPieceDrop={onDrop}
+              boardOrientation={boardOrientation}
+              arePiecesDraggable={isMyTurn()}
+              animationDuration={200}
+              customBoardStyle={{
+                borderRadius: '12px',
+                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
               }}
+              customDarkSquareStyle={{ backgroundColor: '#4a3766' }}
+              customLightSquareStyle={{ backgroundColor: '#1a1a2e' }}
             />
           </div>
 
