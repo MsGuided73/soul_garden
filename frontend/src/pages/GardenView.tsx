@@ -72,7 +72,13 @@ function GardenView() {
   }
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#05050f]">
+    <div className="relative w-full bg-[#05050f]">
+
+      {/* Scrollable spacer — gives the page scroll distance for the Spline scroll animation */}
+      <div className="h-[400vh]" aria-hidden="true" />
+
+      {/* Fixed viewport — pins the visible garden scene while the user scrolls */}
+      <div className="fixed inset-0 w-full h-screen overflow-hidden z-10">
 
       {/* Ambient Audio */}
       <audio id="ambient-audio" loop
@@ -264,6 +270,7 @@ function GardenView() {
           onClose={() => setReportingMessageId(null)}
         />
       )}
+      </div>{/* end fixed viewport */}
     </div>
   )
 }
