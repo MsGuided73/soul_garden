@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 function Dashboard() {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadAgents()
@@ -31,8 +32,9 @@ function Dashboard() {
         }))
         setAgents(mappedAgents)
       }
-    } catch (error) {
-      console.error('Failed to load agents from Supabase:', error)
+    } catch (err: any) {
+      console.error('Failed to load agents from Supabase:', err)
+      setError(err?.message || 'Failed to load agents')
     } finally {
       setLoading(false)
     }
@@ -57,6 +59,11 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-red-400 text-sm">
+          <strong>Error loading agents:</strong> {error}
+        </div>
+      )}
       {/* Welcome Section */}
       <div className="text-center space-y-4">
         <h1 className="heading-1">Welcome to Soul Garden</h1>
