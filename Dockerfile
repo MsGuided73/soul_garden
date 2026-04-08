@@ -7,9 +7,10 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-# Copy workspace root + frontend package files for dependency install
+# Copy workspace root + package files for dependency install
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/
+COPY remotion/package.json remotion/
 
 # Install dependencies (ignoring the Windows lockfile to force raw Linux binaries)
 # --legacy-peer-deps needed because react-chessboard@5 peers on React 19 but we use React 18

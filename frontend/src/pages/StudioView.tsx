@@ -73,6 +73,7 @@ export default function StudioView() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       DRAFTING: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      RENDERING: 'bg-purple-500/10 text-purple-400 border-purple-500/20 animate-pulse',
       PENDING_REVIEW: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       APPROVED: 'bg-green-500/10 text-green-400 border-green-500/20',
       REVISION_REQUESTED: 'bg-red-500/10 text-red-400 border-red-500/20',
